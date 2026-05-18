@@ -36,7 +36,13 @@ class MethodChannelFlureadium extends FlureadiumPlatform {
     'dev.mulev.flureadium/reader-status',
   );
 
+  @visibleForTesting
+  EventChannel selectionChannel = const EventChannel(
+    'dev.mulev.flureadium/selection',
+  );
+
   Stream<Locator>? _onTextLocatorChanged;
+  Stream<Locator>? _onSelectionChanged;
 
   Stream<ReadiumTimebasedState>? _onTimebasedPlayerStateChanged;
 
@@ -56,6 +62,22 @@ class MethodChannelFlureadium extends FlureadiumPlatform {
       return newLocator!;
     });
     return _onTextLocatorChanged!;
+  }
+
+  /// Fires every time the native reader is about to show its edit menu for a
+  /// text selection. Emitted locator's `text.highlight` carries the selected
+  /// string. iOS only as of 0.12.0.
+  @override
+  Stream<Locator> get onSelectionChanged {
+    _onSelectionChanged ??= selectionChannel.receiveBroadcastStream().map((
+      dynamic event,
+    ) {
+      final loc = Locator.fromJson(
+        json.decode(event) as Map<String, dynamic>,
+      );
+      return loc!;
+    });
+    return _onSelectionChanged!;
   }
 
   /// Fires whenever the TimebasedNavigator changes state
@@ -149,6 +171,10 @@ class MethodChannelFlureadium extends FlureadiumPlatform {
         locator.toJson(),
       ]) ??
       false;
+
+  @override
+  Future<Locator?> getCurrentSelection() async =>
+      await currentReaderWidget?.getCurrentSelection();
 
   @override
   Future<Uint8List?> extractPageThumbnail(

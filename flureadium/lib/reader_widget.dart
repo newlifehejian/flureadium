@@ -327,6 +327,12 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
   }
 
   @override
+  Future<Locator?> getCurrentSelection() async {
+    R2Log.d('GetCurrentSelection()');
+    return _channel?.getCurrentSelection();
+  }
+
+  @override
   Future<void> setEPUBPreferences(EPUBPreferences preferences) async {
     _channel?.setEPUBPreferences(preferences);
   }

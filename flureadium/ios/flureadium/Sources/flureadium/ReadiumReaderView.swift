@@ -36,6 +36,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   private var errorStreamHandler: EventStreamHandler?
   private var readerStatusStreamHandler: EventStreamHandler?
   private var textLocatorStreamHandler: EventStreamHandler?
+  private var selectionStreamHandler: EventStreamHandler?
   private let _view: UIView
   private let readiumViewController: EPUBNavigatorViewController
   private var isVerticalScroll = false
@@ -57,7 +58,8 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   var publicationIdentifier: String?
 
   /// The editing actions shown in the EPUB long-press selection menu.
-  /// Keeping this as a static constant makes the native action set testable.
+  /// Suppressing the menu entirely is done via the SelectableNavigatorDelegate
+  /// hook `shouldShowMenuForSelection`, not by emptying this list.
   static let epubEditingActions: [EditingAction] = [.copy, .lookup, .translate]
 
   func view() -> UIView {
@@ -98,6 +100,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     textLocatorStreamHandler = EventStreamHandler(withName: "text-locator", messenger: registrar.messenger())
     readerStatusStreamHandler = EventStreamHandler(withName: "reader-status", messenger: registrar.messenger())
     errorStreamHandler = EventStreamHandler(withName: "error", messenger: registrar.messenger())
+    selectionStreamHandler = EventStreamHandler(withName: "selection", messenger: registrar.messenger())
 
     readerStatusStreamHandler?.sendEvent(ReadiumReaderStatusLoading)
 
@@ -200,6 +203,16 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
   // override EPUBNavigatorDelegate::middleTapHandler
   func middleTapHandler() {
+  }
+
+  // override SelectableNavigatorDelegate::navigator(_:shouldShowMenuForSelection:)
+  // Returning false suppresses the native UIMenuController; Flutter is responsible
+  // for rendering any selection UI. We also push the selection out over the
+  // "selection" EventChannel so Dart subscribers see it the moment iOS would
+  // have shown the menu.
+  func navigator(_ navigator: SelectableNavigator, shouldShowMenuForSelection selection: Selection) -> Bool {
+    selectionStreamHandler?.sendEvent(selection.locator.jsonString)
+    return false
   }
 
   func navigatorContentInset(_ navigator: VisualNavigator) -> UIEdgeInsets? {
@@ -609,6 +622,10 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       print(TAG, "onMethodCall[setPreferences] args = \(args)")
       applyDecorations(decorations, forGroup: identifier)
       break
+    case "getCurrentSelection":
+      print(TAG, "onMethodCall[getCurrentSelection]")
+      result(self.getCurrentSelection()?.jsonString)
+      break
     case "dispose":
       print(TAG, "Disposing readiumViewController")
       isDisposed = true
@@ -621,6 +638,8 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       readerStatusStreamHandler = nil
       errorStreamHandler?.dispose()
       errorStreamHandler = nil
+      selectionStreamHandler?.dispose()
+      selectionStreamHandler = nil
       channel.setMethodCallHandler(nil)
       if currentReaderView === self { currentReaderView = nil }
       result(nil)

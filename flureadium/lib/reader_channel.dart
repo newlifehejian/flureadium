@@ -10,6 +10,7 @@ enum _ReaderChannelMethodInvoke {
   goLeft,
   goRight,
   getCurrentLocator,
+  getCurrentSelection,
   getLocatorFragments,
   setLocation,
   isLocatorVisible,
@@ -124,6 +125,18 @@ class ReadiumReaderChannel extends MethodChannel {
   Future<Locator?> getCurrentLocator() async =>
       await _invokeMethod<dynamic>(
         _ReaderChannelMethodInvoke.getCurrentLocator,
+        [],
+      ).then(
+        (locStr) => locStr != null
+            ? Locator.fromJson(json.decode(locStr) as Map<String, dynamic>)
+            : null,
+      );
+
+  /// Get the locator for the current user selection, or null if nothing is
+  /// selected. The locator's `text.highlight` contains the selected string.
+  Future<Locator?> getCurrentSelection() async =>
+      await _invokeMethod<dynamic>(
+        _ReaderChannelMethodInvoke.getCurrentSelection,
         [],
       ).then(
         (locStr) => locStr != null

@@ -23,6 +23,10 @@ abstract class ReadiumReaderWidgetInterface {
   /// Gets the current Navigator's locator.
   Future<Locator?> getCurrentLocator();
 
+  /// Gets a locator for the current user text selection, or null if none.
+  /// `Locator.text.highlight` contains the selected string.
+  Future<Locator?> getCurrentSelection();
+
   /// Get a locator with relevant fragments
   Future<Locator?> getLocatorFragments(final Locator locator);
 

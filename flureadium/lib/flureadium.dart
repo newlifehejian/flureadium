@@ -136,6 +136,16 @@ class Flureadium {
     return _platform.onTextLocatorChanged;
   }
 
+  /// Stream of text selection events from the reader.
+  ///
+  /// Fires every time the native reader would show its edit menu for a
+  /// selection. The emitted [Locator]'s `text?.highlight` carries the
+  /// selected string. The native menu is suppressed by flureadium — the
+  /// host app is expected to render its own selection UI in response.
+  ///
+  /// iOS only as of 0.12.0; Android emits nothing.
+  Stream<Locator> get onSelectionChanged => _platform.onSelectionChanged;
+
   /// Stream of timebased player state changes.
   ///
   /// Emits [ReadiumTimebasedState] for audiobook playback or TTS,
@@ -276,6 +286,15 @@ class Flureadium {
   ///
   /// Returns true if navigation succeeded.
   Future<bool> goToLocator(Locator locator) => _platform.goToLocator(locator);
+
+  /// Returns a [Locator] for the user's current text selection in the reader,
+  /// or null if nothing is selected.
+  ///
+  /// The selected text is in `locator.text?.highlight`. The surrounding text
+  /// context is in `locator.text?.before` and `locator.text?.after`.
+  ///
+  /// iOS only as of 0.12.0; Android always returns null.
+  Future<Locator?> getCurrentSelection() => _platform.getCurrentSelection();
 
   /// Enables audiobook playback mode.
   ///

@@ -31,6 +31,8 @@ class MockFlureadiumPlatform
       StreamController<ReadiumReaderStatus>.broadcast();
   final StreamController<Locator> _textLocatorController =
       StreamController<Locator>.broadcast();
+  final StreamController<Locator> _selectionController =
+      StreamController<Locator>.broadcast();
   final StreamController<ReadiumTimebasedState> _timebasedStateController =
       StreamController<ReadiumTimebasedState>.broadcast();
   final StreamController<ReadiumError> _errorController =
@@ -43,6 +45,9 @@ class MockFlureadiumPlatform
   /// Emits a text locator event for testing.
   void emitTextLocator(Locator locator) => _textLocatorController.add(locator);
 
+  /// Emits a selection event for testing.
+  void emitSelection(Locator locator) => _selectionController.add(locator);
+
   /// Emits a timebased player state event for testing.
   void emitTimebasedState(ReadiumTimebasedState state) =>
       _timebasedStateController.add(state);
@@ -54,6 +59,7 @@ class MockFlureadiumPlatform
   void dispose() {
     _readerStatusController.close();
     _textLocatorController.close();
+    _selectionController.close();
     _timebasedStateController.close();
     _errorController.close();
   }
@@ -150,6 +156,12 @@ class MockFlureadiumPlatform
   Future<bool> goToLocator(Locator locator) async {
     calls.add(MockMethodCall('goToLocator', {'locator': locator}));
     return mockGoToLocatorResult;
+  }
+
+  @override
+  Future<Locator?> getCurrentSelection() async {
+    calls.add(MockMethodCall('getCurrentSelection', {}));
+    return mockLocator;
   }
 
   // Preferences
@@ -340,6 +352,9 @@ class MockFlureadiumPlatform
 
   @override
   Stream<Locator> get onTextLocatorChanged => _textLocatorController.stream;
+
+  @override
+  Stream<Locator> get onSelectionChanged => _selectionController.stream;
 
   @override
   Stream<ReadiumTimebasedState> get onTimebasedPlayerStateChanged =>

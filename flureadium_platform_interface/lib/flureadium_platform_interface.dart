@@ -113,6 +113,12 @@ abstract class FlureadiumPlatform extends PlatformInterface {
   Future<bool> goToLocator(Locator locator) =>
       throw UnimplementedError('goToLocator() has not been implemented.');
 
+  /// Returns a Locator for the user's current text selection in the reader,
+  /// or null if nothing is selected. `Locator.text.highlight` carries the
+  /// selected string.
+  Future<Locator?> getCurrentSelection() =>
+      throw UnimplementedError('getCurrentSelection() has not been implemented.');
+
   /// Extracts a downscaled JPEG thumbnail of a publication resource.
   ///
   /// [href] is the resource href as it appears in `Publication.readingOrder` or
@@ -235,6 +241,15 @@ abstract class FlureadiumPlatform extends PlatformInterface {
   Stream<Locator> get onTextLocatorChanged {
     throw UnimplementedError(
       'onTextLocatorChanged stream has not been implemented.',
+    );
+  }
+
+  /// Fires when the user makes a text selection in the reader. The emitted
+  /// Locator's `text.highlight` carries the selected string. iOS only as of
+  /// 0.12.0; Android emits nothing.
+  Stream<Locator> get onSelectionChanged {
+    throw UnimplementedError(
+      'onSelectionChanged stream has not been implemented.',
     );
   }
 

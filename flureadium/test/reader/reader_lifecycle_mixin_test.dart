@@ -25,6 +25,9 @@ class TestLifecycleManager
   Future<Locator?> getCurrentLocator() async => null;
 
   @override
+  Future<Locator?> getCurrentSelection() async => null;
+
+  @override
   Future<Locator?> getLocatorFragments(Locator locator) async => null;
 
   @override

@@ -9,6 +9,7 @@ import 'mocks/mock_platform.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+
   late Flureadium flureadium;
   late MockFlureadiumPlatform mockPlatform;
 
