@@ -17,6 +17,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
@@ -97,6 +99,11 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
         return navigator.firstVisibleElementLocator()
     }
 
+    /// Groups for which we already attached a decoration tap listener.
+    /// `EpubNavigatorFragment.addDecorationListener` stacks listeners per call
+    /// — we keep one per group to avoid duplicate emissions.
+    private val observedDecorationGroups = mutableSetOf<String>()
+
     suspend fun applyDecorations(
         decorations: List<Decoration>,
         group: String,
@@ -108,6 +115,51 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
         }
 
         navigator.applyDecorations(decorations, group)
+        installDecorationListenerIfNeeded(navigator, group)
+    }
+
+    private fun installDecorationListenerIfNeeded(
+        navigator: EpubNavigatorFragment,
+        group: String,
+    ) {
+        if (!observedDecorationGroups.add(group)) return
+        navigator.addDecorationListener(
+            group,
+            object : DecorableNavigator.Listener {
+                override fun onDecorationActivated(
+                    event: DecorableNavigator.OnActivatedEvent,
+                ): Boolean {
+                    emitDecorationActivated(event)
+                    return true
+                }
+            },
+        )
+    }
+
+    private fun emitDecorationActivated(
+        event: DecorableNavigator.OnActivatedEvent,
+    ) {
+        try {
+            val payload = JSONObject().apply {
+                put("group", event.group)
+                put("decorationId", event.decoration.id)
+                put("locator", event.decoration.locator.toJSON())
+                event.rect?.let {
+                    put(
+                        "rect",
+                        JSONObject().apply {
+                            put("x", it.left.toDouble())
+                            put("y", it.top.toDouble())
+                            put("width", it.width().toDouble())
+                            put("height", it.height().toDouble())
+                        },
+                    )
+                }
+            }
+            ReadiumReader.sendDecorationActivatedEvent(payload.toString())
+        } catch (ex: Exception) {
+            Log.e(TAG, "emitDecorationActivated failed: $ex")
+        }
     }
 
     /**
@@ -307,9 +359,22 @@ class EpubReaderFragment : VisualReaderFragment(), EpubNavigatorFragment.Listene
         val preferences = model.preferences ?: EpubPreferences()
         model.preferences = preferences
         val navigatorFactory = model.navigatorFactory!!
+
+        // Add a "Study" item to the selection ActionMode; emit the current
+        // selection over the "selection" EventChannel when the user taps it.
+        // Standard Android items (Copy / Translate / Look up) are preserved
+        // because we only append in onCreateActionMode.
+        val studyCallback = StudyActionModeCallback(onStudy = {
+            launch {
+                val selection = epubNavigator?.currentSelection() ?: return@launch
+                ReadiumReader.sendSelectionEvent(selection.locator)
+            }
+        })
+
         val fragmentFactory = navigatorFactory.createFragmentFactory(
             configuration = EpubNavigatorFragment.Configuration(
                 shouldApplyInsetsPadding = false,
+                selectionActionModeCallback = studyCallback,
 
                 // DFG: This will be relative to your app's src/main/assets/ folder.
                 // To reference assets from other flutter packages use 'flutter_assets/packages/<package>/assets/.*'

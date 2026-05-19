@@ -33,6 +33,9 @@ class MockFlureadiumPlatform
       StreamController<Locator>.broadcast();
   final StreamController<Locator> _selectionController =
       StreamController<Locator>.broadcast();
+  final StreamController<ReaderDecorationActivatedEvent>
+  _decorationActivatedController =
+      StreamController<ReaderDecorationActivatedEvent>.broadcast();
   final StreamController<ReadiumTimebasedState> _timebasedStateController =
       StreamController<ReadiumTimebasedState>.broadcast();
   final StreamController<ReadiumError> _errorController =
@@ -48,6 +51,10 @@ class MockFlureadiumPlatform
   /// Emits a selection event for testing.
   void emitSelection(Locator locator) => _selectionController.add(locator);
 
+  /// Emits a decoration activation event for testing.
+  void emitDecorationActivated(ReaderDecorationActivatedEvent event) =>
+      _decorationActivatedController.add(event);
+
   /// Emits a timebased player state event for testing.
   void emitTimebasedState(ReadiumTimebasedState state) =>
       _timebasedStateController.add(state);
@@ -60,6 +67,7 @@ class MockFlureadiumPlatform
     _readerStatusController.close();
     _textLocatorController.close();
     _selectionController.close();
+    _decorationActivatedController.close();
     _timebasedStateController.close();
     _errorController.close();
   }
@@ -355,6 +363,10 @@ class MockFlureadiumPlatform
 
   @override
   Stream<Locator> get onSelectionChanged => _selectionController.stream;
+
+  @override
+  Stream<ReaderDecorationActivatedEvent> get onDecorationActivated =>
+      _decorationActivatedController.stream;
 
   @override
   Stream<ReadiumTimebasedState> get onTimebasedPlayerStateChanged =>

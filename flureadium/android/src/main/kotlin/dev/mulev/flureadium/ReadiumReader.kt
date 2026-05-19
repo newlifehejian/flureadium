@@ -12,6 +12,8 @@ import androidx.savedstate.SavedStateRegistryOwner
 import dev.mulev.flureadium.events.EpubIsReadyEventChannel
 import dev.mulev.flureadium.events.ErrorEventChannel
 import dev.mulev.flureadium.events.ReaderStatusEventChannel
+import dev.mulev.flureadium.events.DecorationActivatedEventChannel
+import dev.mulev.flureadium.events.SelectionEventChannel
 import dev.mulev.flureadium.events.TextLocatorEventChannel
 import dev.mulev.flureadium.events.TimedBasedStateEventChannel
 import dev.mulev.flureadium.models.ReadiumTimebasedState
@@ -104,6 +106,8 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
     private var readerStatusEventChannel: ReaderStatusEventChannel? = null
     private var errorEventChannel: ErrorEventChannel? = null
     private var textLocatorEventChannel: TextLocatorEventChannel? = null
+    private var selectionEventChannel: SelectionEventChannel? = null
+    private var decorationActivatedEventChannel: DecorationActivatedEventChannel? = null
 
     private var readerViewRef: WeakReference<ReadiumReaderWidget>? = null
 
@@ -244,6 +248,12 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
 
         textLocatorEventChannel?.dispose()
         textLocatorEventChannel = TextLocatorEventChannel(messenger)
+
+        selectionEventChannel?.dispose()
+        selectionEventChannel = SelectionEventChannel(messenger)
+
+        decorationActivatedEventChannel?.dispose()
+        decorationActivatedEventChannel = DecorationActivatedEventChannel(messenger)
 
         // store weak ref only
         (activity as? SavedStateRegistryOwner)?.savedStateRegistry?.let {
@@ -427,6 +437,12 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
         textLocatorEventChannel?.dispose()
         textLocatorEventChannel = null
 
+        selectionEventChannel?.dispose()
+        selectionEventChannel = null
+
+        decorationActivatedEventChannel?.dispose()
+        decorationActivatedEventChannel = null
+
         jobs.forEach { it.cancel() }
         jobs.clear()
         mainScope.coroutineContext.cancelChildren()
@@ -444,6 +460,14 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
 
     fun sendTextLocatorEvent(locator: Locator) {
         textLocatorEventChannel?.sendEvent(locator)
+    }
+
+    fun sendSelectionEvent(locator: Locator) {
+        selectionEventChannel?.sendEvent(locator)
+    }
+
+    fun sendDecorationActivatedEvent(jsonPayload: String) {
+        decorationActivatedEventChannel?.sendEvent(jsonPayload)
     }
 
     // Safe getter — returns applicationContext or throws if not available.

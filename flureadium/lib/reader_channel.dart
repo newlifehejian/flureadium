@@ -111,13 +111,24 @@ class ReadiumReaderChannel extends MethodChannel {
   }
 
   /// Apply decorations to the reader.
+  ///
+  /// Each decoration is sent as a JSON string with a flat shape required by
+  /// Readium iOS's `Decoration.init(fromMap:)` (which reads
+  /// `Dictionary<String, String>` with keys `id`, `locator`, `style`, `tint` —
+  /// note locator is itself a JSON string, and style/tint are flat siblings,
+  /// not nested under a `style` object). Android matches the same shape.
   Future<void> applyDecorations(
     String id,
     List<ReaderDecoration> decorations,
   ) async {
     return await _invokeMethod(_ReaderChannelMethodInvoke.applyDecorations, [
       id,
-      decorations.map((d) => d.toJson()).toList(),
+      decorations.map((d) => json.encode({
+        'id': d.id,
+        'locator': json.encode(d.locator.toJson()),
+        'style': d.style.style.name,
+        'tint': d.style.tint.toCSS(),
+      })).toList(),
     ]);
   }
 

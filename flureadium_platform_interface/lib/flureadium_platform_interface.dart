@@ -253,6 +253,16 @@ abstract class FlureadiumPlatform extends PlatformInterface {
     );
   }
 
+  /// Fires when the user taps a previously-applied decoration (e.g. a saved
+  /// highlight). The event carries the group, the per-item decoration id, the
+  /// original Locator the decoration was applied at, and the bounding rect of
+  /// the activated decoration if available.
+  Stream<ReaderDecorationActivatedEvent> get onDecorationActivated {
+    throw UnimplementedError(
+      'onDecorationActivated stream has not been implemented.',
+    );
+  }
+
   // State stream for audio position. Will be as near as possible to the currently spoken or played audio.
   Stream<ReadiumTimebasedState> get onTimebasedPlayerStateChanged {
     throw UnimplementedError(

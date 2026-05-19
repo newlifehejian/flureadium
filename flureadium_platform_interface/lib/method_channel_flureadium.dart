@@ -41,8 +41,14 @@ class MethodChannelFlureadium extends FlureadiumPlatform {
     'dev.mulev.flureadium/selection',
   );
 
+  @visibleForTesting
+  EventChannel decorationActivatedChannel = const EventChannel(
+    'dev.mulev.flureadium/decoration-activated',
+  );
+
   Stream<Locator>? _onTextLocatorChanged;
   Stream<Locator>? _onSelectionChanged;
+  Stream<ReaderDecorationActivatedEvent>? _onDecorationActivated;
 
   Stream<ReadiumTimebasedState>? _onTimebasedPlayerStateChanged;
 
@@ -78,6 +84,19 @@ class MethodChannelFlureadium extends FlureadiumPlatform {
       return loc!;
     });
     return _onSelectionChanged!;
+  }
+
+  /// Fires when the user taps a previously-applied decoration.
+  @override
+  Stream<ReaderDecorationActivatedEvent> get onDecorationActivated {
+    _onDecorationActivated ??= decorationActivatedChannel
+        .receiveBroadcastStream()
+        .map(
+          (dynamic event) => ReaderDecorationActivatedEvent.fromJsonMap(
+            json.decode(event) as Map<String, dynamic>,
+          ),
+        );
+    return _onDecorationActivated!;
   }
 
   /// Fires whenever the TimebasedNavigator changes state

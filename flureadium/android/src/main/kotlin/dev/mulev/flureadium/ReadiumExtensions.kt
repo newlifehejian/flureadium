@@ -32,18 +32,36 @@ private fun readiumColorFromCSS(cssColor: String): ReadiumColor {
     return ReadiumColor(color)
 }
 
-fun decorationFromMap(decoMap: Map<String, Any>): Decoration? {
+/**
+ * Decodes a JSON-encoded decoration payload from Flutter side.
+ *
+ * The wire format is flat (matches Readium iOS's `Decoration.init(fromMap:)`,
+ * which reads Dictionary<String, String>):
+ *   {
+ *     "id": "...",
+ *     "locator": "<inner JSON string>",
+ *     "style": "highlight",
+ *     "tint": "#AARRGGBB"
+ *   }
+ *
+ * Returns null on any deserialization failure so the caller can `mapNotNull`
+ * past partial input.
+ */
+fun decorationFromJsonString(jsonString: String): Decoration? {
     try {
-        val id = decoMap["decorationId"] as String
-        val locator = Locator.fromJSON(jsonDecode(decoMap["locator"] as String) as JSONObject)
+        val obj = JSONObject(jsonString)
+        val id = obj.getString("id")
+        val locator = Locator.fromJSON(JSONObject(obj.getString("locator")))
             ?: throw Exception("Failed to deserialize locator")
-
-        @Suppress("UNCHECKED_CAST")
-        val style = decorationStyleFromMap(decoMap["style"] as Map<String, String>)
-            ?: throw Exception("Failed to deserialize decoration")
+        val style = decorationStyleFromMap(
+            mapOf(
+                "style" to obj.getString("style"),
+                "tint" to obj.getString("tint"),
+            ),
+        ) ?: throw Exception("Failed to deserialize decoration style")
         return Decoration(id, locator, style)
     } catch (ex: Exception) {
-        Log.e("ReadiumExtensions", "Error mapping JSONObject to Decoration.Style: $ex")
+        Log.e("ReadiumExtensions", "Error decoding decoration JSON: $ex")
         return null
     }
 }

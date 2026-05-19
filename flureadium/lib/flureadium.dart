@@ -146,6 +146,15 @@ class Flureadium {
   /// iOS only as of 0.12.0; Android emits nothing.
   Stream<Locator> get onSelectionChanged => _platform.onSelectionChanged;
 
+  /// Stream of decoration tap events.
+  ///
+  /// Fires when the user taps a previously-applied decoration. Each event
+  /// carries the group, the decoration id, the locator (with text fragments)
+  /// the decoration was applied at, and an optional bounding rect for
+  /// positioning floating UI.
+  Stream<ReaderDecorationActivatedEvent> get onDecorationActivated =>
+      _platform.onDecorationActivated;
+
   /// Stream of timebased player state changes.
   ///
   /// Emits [ReadiumTimebasedState] for audiobook playback or TTS,

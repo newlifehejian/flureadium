@@ -37,6 +37,12 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   private var readerStatusStreamHandler: EventStreamHandler?
   private var textLocatorStreamHandler: EventStreamHandler?
   private var selectionStreamHandler: EventStreamHandler?
+  private var decorationActivatedStreamHandler: EventStreamHandler?
+
+  /// Decoration groups for which we have already installed a tap observer.
+  /// `observeDecorationInteractions` would otherwise stack callbacks per
+  /// invocation, causing duplicate emissions.
+  private var observedDecorationGroups: Set<String> = []
   private let _view: UIView
   private let readiumViewController: EPUBNavigatorViewController
   private var isVerticalScroll = false
@@ -101,6 +107,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     readerStatusStreamHandler = EventStreamHandler(withName: "reader-status", messenger: registrar.messenger())
     errorStreamHandler = EventStreamHandler(withName: "error", messenger: registrar.messenger())
     selectionStreamHandler = EventStreamHandler(withName: "selection", messenger: registrar.messenger())
+    decorationActivatedStreamHandler = EventStreamHandler(withName: "decoration-activated", messenger: registrar.messenger())
 
     readerStatusStreamHandler?.sendEvent(ReadiumReaderStatusLoading)
 
@@ -119,7 +126,11 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     config.preloadPreviousPositionCount = 2
     config.preloadNextPositionCount = 4
     config.debugState = true
-    config.decorationTemplates = HTMLDecorationTemplate.defaultTemplates(alpha: 1.0, experimentalPositioning: true)
+    // Use Readium's default alpha 0.3 (~30% semi-transparent) so highlights
+    // let the page show through and overlapping decorations naturally darken
+    // the overlap region. alpha=1.0 made every highlight fully opaque, hiding
+    // the stacking effect when multiple decorations cover the same range.
+    config.decorationTemplates = HTMLDecorationTemplate.defaultTemplates(alpha: 0.3, experimentalPositioning: true)
     config.editingActions = ReadiumReaderView.epubEditingActions
 
     if (defaultPreferences != nil) {
@@ -165,14 +176,16 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     currentReaderView = self
     publicationIdentifier = publication.metadata.identifier
 
-    /// This adapter will automatically turn pages when the user taps the
-    /// screen edges or press arrow keys.
-    ///
-    /// Bind it to the navigator before adding your own observers to prevent
-    /// triggering your actions when turning pages.
-    /// NOTE: Store in property to prevent ARC deallocation
+    /// Readium's built-in edge-tap adapter. We pass an empty pointer-policy
+    /// `types` array so it installs NO pointer observers — flureadium's own
+    /// EdgeTapInterceptView is the sole source of edge-tap navigation, and
+    /// the `enableEdgeTapNavigation` flag controls it cleanly. Without this,
+    /// `enableEdgeTapNavigation=false` only silences flureadium's narrow
+    /// edge zones (~44-120pt) while Readium's third-of-screen zones still
+    /// turn pages, breaking the contract of the flag.
+    /// Keyboard arrow / space navigation still works via keyboardPolicy.
     directionalNavigationAdapter = DirectionalNavigationAdapter(
-        pointerPolicy: .init(types: [.mouse, .touch])
+        pointerPolicy: .init(types: [])
     )
     directionalNavigationAdapter?.bind(to: readiumViewController)
 
@@ -281,6 +294,39 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   func applyDecorations(_ decorations: [Decoration], forGroup groupIdentifier: String) {
     print(TAG, "onMethodApplyDecorations: \(decorations) identifier: \(groupIdentifier)")
     self.readiumViewController.apply(decorations: decorations, in: groupIdentifier)
+    installDecorationObserverIfNeeded(forGroup: groupIdentifier)
+  }
+
+  /// Installs a tap observer for the given decoration group on first use.
+  /// Readium's `observeDecorationInteractions` stacks callbacks per call, so
+  /// we track which groups already have one to avoid duplicate emissions.
+  private func installDecorationObserverIfNeeded(forGroup group: String) {
+    guard !observedDecorationGroups.contains(group) else { return }
+    observedDecorationGroups.insert(group)
+    readiumViewController.observeDecorationInteractions(inGroup: group) { [weak self] event in
+      self?.emitDecorationActivated(event)
+    }
+  }
+
+  private func emitDecorationActivated(_ event: OnDecorationActivatedEvent) {
+    var payload: [String: Any] = [
+      "group": event.group,
+      "decorationId": event.decoration.id,
+      "locator": event.decoration.locator.json,
+    ]
+    if let r = event.rect {
+      payload["rect"] = [
+        "x": Double(r.origin.x),
+        "y": Double(r.origin.y),
+        "width": Double(r.size.width),
+        "height": Double(r.size.height),
+      ]
+    }
+    guard
+      let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+      let str = String(data: data, encoding: .utf8)
+    else { return }
+    decorationActivatedStreamHandler?.sendEvent(str)
   }
 
   func getFirstVisibleLocator() async -> Locator? {
@@ -640,6 +686,9 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       errorStreamHandler = nil
       selectionStreamHandler?.dispose()
       selectionStreamHandler = nil
+      decorationActivatedStreamHandler?.dispose()
+      decorationActivatedStreamHandler = nil
+      observedDecorationGroups.removeAll()
       channel.setMethodCallHandler(nil)
       if currentReaderView === self { currentReaderView = nil }
       result(nil)

@@ -802,8 +802,10 @@ class ReadiumReaderWidget(
                     val groupId = args[0] as String
 
                     @Suppress("UNCHECKED_CAST")
-                    val decorationListStr = args[1] as List<Map<String, String>>
-                    val decorations = decorationListStr.mapNotNull { decorationFromMap(it) }
+                    val decorationJsonList = args[1] as List<String>
+                    val decorations = decorationJsonList.mapNotNull {
+                        decorationFromJsonString(it)
+                    }
 
                     ReadiumReader.applyDecorations(decorations, groupId)
                     result.success(null)
