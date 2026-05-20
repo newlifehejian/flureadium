@@ -16,4 +16,16 @@ class ReadiumReaderChannel: FlutterMethodChannel {
   func onExternalLinkActivated(url: URL) {
     invokeMethod("onExternalLinkActivated", arguments: url.absoluteString as String?)
   }
+
+  // Per-view delivery for selection/decoration. The global EventChannels share
+  // one channel name across all reader instances, so any instance's
+  // subscribe/cancel clobbers the others. This per-view MethodChannel is tied
+  // to a single reader, mirroring onPageChanged, and avoids that interference.
+  func onSelectionChanged(locatorJson: String?) {
+    invokeMethod("onSelectionChanged", arguments: locatorJson)
+  }
+
+  func onDecorationActivated(eventJson: String?) {
+    invokeMethod("onDecorationActivated", arguments: eventJson)
+  }
 }

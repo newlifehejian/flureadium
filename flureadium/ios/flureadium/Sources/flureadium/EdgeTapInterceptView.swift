@@ -28,6 +28,13 @@ class EdgeTapInterceptView: UIView {
     /// whether edge tap callbacks are configured.
     var interceptEdgeTaps: Bool = false
 
+    /// Callback invoked when the user taps the "Study" item in the text
+    /// selection menu. Lives here because EdgeTapInterceptView is the
+    /// topmost UIView in the platform-view hierarchy, so it sits on the
+    /// responder chain above the WKWebView and iOS will find
+    /// `studyAction(_:)` here when dispatching the menu selector.
+    var onStudyAction: (() -> Void)?
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupGestureRecognizer()
@@ -80,6 +87,17 @@ class EdgeTapInterceptView: UIView {
         } else if location.x > bounds.width - edgeSize {
             onRightEdgeTap?()
         }
+    }
+
+    @objc func studyAction(_ sender: Any?) {
+        onStudyAction?()
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(studyAction(_:)) {
+            return onStudyAction != nil
+        }
+        return super.canPerformAction(action, withSender: sender)
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {

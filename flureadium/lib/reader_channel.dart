@@ -26,12 +26,20 @@ class ReadiumReaderChannel extends MethodChannel {
     super.name, {
     required this.onPageChanged,
     this.onExternalLinkActivated,
+    this.onSelectionChanged,
+    this.onDecorationActivated,
   }) {
     setMethodCallHandler(onMethodCall);
   }
 
   final void Function(Locator) onPageChanged;
   void Function(String)? onExternalLinkActivated;
+
+  /// Per-view selection/decoration delivery (mirrors [onPageChanged]). Replaces
+  /// the global `selection`/`decoration-activated` EventChannels, whose shared
+  /// channel names let one reader instance's subscribe/cancel clobber another's.
+  final void Function(Locator)? onSelectionChanged;
+  final void Function(ReaderDecorationActivatedEvent)? onDecorationActivated;
 
   /// Go e.g. navigate to a specific locator in the publication.
   Future<void> go(
@@ -197,6 +205,19 @@ class ReadiumReaderChannel extends MethodChannel {
           R2Log.d('onExternalLinkActivated $link');
           onExternalLinkActivated?.call(link);
 
+          return null;
+        case 'onSelectionChanged':
+          final locator = Locator.fromJson(
+            json.decode(call.arguments as String) as Map<String, dynamic>,
+          );
+          if (locator == null) return null;
+          onSelectionChanged?.call(locator);
+          return null;
+        case 'onDecorationActivated':
+          final event = ReaderDecorationActivatedEvent.fromJsonMap(
+            json.decode(call.arguments as String) as Map<String, dynamic>,
+          );
+          onDecorationActivated?.call(event);
           return null;
         default:
           throw UnimplementedError('Unhandled call ${call.method}');

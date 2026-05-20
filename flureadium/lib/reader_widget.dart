@@ -23,11 +23,15 @@ ReadiumReaderChannel createReadiumReaderChannel(
   int id, {
   required ValueChanged<Locator> onPageChanged,
   ValueChanged<String>? onExternalLinkActivated,
+  ValueChanged<Locator>? onSelectionChanged,
+  ValueChanged<ReaderDecorationActivatedEvent>? onDecorationActivated,
 }) {
   return ReadiumReaderChannel(
     '$_viewType:$id',
     onPageChanged: onPageChanged,
     onExternalLinkActivated: onExternalLinkActivated,
+    onSelectionChanged: onSelectionChanged,
+    onDecorationActivated: onDecorationActivated,
   );
 }
 
@@ -43,6 +47,8 @@ class ReadiumReaderWidget extends StatefulWidget {
     this.onSwipe,
     this.onExternalLinkActivated,
     this.onLocatorChanged,
+    this.onSelectionChanged,
+    this.onDecorationActivated,
     this.onReady,
     super.key,
   });
@@ -56,6 +62,14 @@ class ReadiumReaderWidget extends StatefulWidget {
   final VoidCallback? onSwipe;
   final Function(String)? onExternalLinkActivated;
   final void Function(Locator)? onLocatorChanged;
+
+  /// Fired when the user taps "Study" on a text selection. Per-view delivery
+  /// via MethodChannel (not the global selection EventChannel).
+  final void Function(Locator)? onSelectionChanged;
+
+  /// Fired when the user taps a previously-applied decoration. Per-view
+  /// delivery via MethodChannel (not the global decoration EventChannel).
+  final void Function(ReaderDecorationActivatedEvent)? onDecorationActivated;
 
   /// Called once when the native platform view has been created and all
   /// EventChannel handlers are registered. Safe to subscribe to
@@ -446,6 +460,8 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
         }
       },
       onExternalLinkActivated: widget.onExternalLinkActivated,
+      onSelectionChanged: widget.onSelectionChanged,
+      onDecorationActivated: widget.onDecorationActivated,
     );
 
     // Register as current widget only after _channel is assigned.

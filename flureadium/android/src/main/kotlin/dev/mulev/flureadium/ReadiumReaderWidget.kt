@@ -391,6 +391,18 @@ class ReadiumReaderWidget(
         channel.onExternalLinkActivated(url)
     }
 
+    // Per-view selection/decoration delivery (mirrors onPageChanged). Replaces the
+    // global selection/decoration EventChannels, whose shared channel names let
+    // one reader instance's subscribe/cancel clobber another's. Dispatched on the
+    // main thread because MethodChannel.invokeMethod must run there.
+    fun emitSelectionChanged(locator: Locator) {
+        mainScope.launch { channel.onSelectionChanged(locator) }
+    }
+
+    fun emitDecorationActivated(jsonPayload: String) {
+        mainScope.launch { channel.onDecorationActivated(jsonPayload) }
+    }
+
     private suspend fun setLocation(
         locator: Locator,
         isAudioBookWithText: Boolean

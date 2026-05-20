@@ -46,98 +46,63 @@ class MethodChannelFlureadium extends FlureadiumPlatform {
     'dev.mulev.flureadium/decoration-activated',
   );
 
-  Stream<Locator>? _onTextLocatorChanged;
-  Stream<Locator>? _onSelectionChanged;
-  Stream<ReaderDecorationActivatedEvent>? _onDecorationActivated;
-
-  Stream<ReadiumTimebasedState>? _onTimebasedPlayerStateChanged;
-
-  Stream<ReadiumReaderStatus>? _onReaderStatusChanged;
-
-  Stream<ReadiumError>? _onErrorEvent;
+  // 这些 reader 事件流(EventChannel)不缓存。native 侧每个 reader view 用独立的
+  // EventStreamHandler，view dispose 时会发 FlutterEndOfEventStream 关闭 Dart 端
+  // 的流。若用 `??=` 缓存，第一次关闭 reader 后缓存的流就永久 close，重开 reader
+  // 再 listen 也收不到事件(native onListen 不再触发，新 view 的 sink 接不上)。
+  // 因此每次取用都返回新的 receiveBroadcastStream，让新 view 的 handler 重新接上。
+  // 用法约定：同一时刻每条流只有一个订阅者，订阅者在 view dispose 时 cancel。
 
   /// Fires whenever the Reader's current Locator changes.
   @override
-  Stream<Locator> get onTextLocatorChanged {
-    _onTextLocatorChanged ??= textLocatorChannel.receiveBroadcastStream().map((
-      dynamic event,
-    ) {
-      final newLocator = Locator.fromJson(
-        json.decode(event) as Map<String, dynamic>,
+  Stream<Locator> get onTextLocatorChanged =>
+      textLocatorChannel.receiveBroadcastStream().map(
+        (dynamic event) =>
+            Locator.fromJson(json.decode(event) as Map<String, dynamic>)!,
       );
-      return newLocator!;
-    });
-    return _onTextLocatorChanged!;
-  }
 
   /// Fires every time the native reader is about to show its edit menu for a
   /// text selection. Emitted locator's `text.highlight` carries the selected
   /// string. iOS only as of 0.12.0.
   @override
-  Stream<Locator> get onSelectionChanged {
-    _onSelectionChanged ??= selectionChannel.receiveBroadcastStream().map((
-      dynamic event,
-    ) {
-      final loc = Locator.fromJson(
-        json.decode(event) as Map<String, dynamic>,
+  Stream<Locator> get onSelectionChanged =>
+      selectionChannel.receiveBroadcastStream().map(
+        (dynamic event) =>
+            Locator.fromJson(json.decode(event) as Map<String, dynamic>)!,
       );
-      return loc!;
-    });
-    return _onSelectionChanged!;
-  }
 
   /// Fires when the user taps a previously-applied decoration.
   @override
-  Stream<ReaderDecorationActivatedEvent> get onDecorationActivated {
-    _onDecorationActivated ??= decorationActivatedChannel
-        .receiveBroadcastStream()
-        .map(
-          (dynamic event) => ReaderDecorationActivatedEvent.fromJsonMap(
-            json.decode(event) as Map<String, dynamic>,
-          ),
-        );
-    return _onDecorationActivated!;
-  }
+  Stream<ReaderDecorationActivatedEvent> get onDecorationActivated =>
+      decorationActivatedChannel.receiveBroadcastStream().map(
+        (dynamic event) => ReaderDecorationActivatedEvent.fromJsonMap(
+          json.decode(event) as Map<String, dynamic>,
+        ),
+      );
 
   /// Fires whenever the TimebasedNavigator changes state
   @override
-  Stream<ReadiumTimebasedState> get onTimebasedPlayerStateChanged {
-    _onTimebasedPlayerStateChanged ??= timebasedStateChannel
-        .receiveBroadcastStream()
-        .map((dynamic event) {
-          final state = ReadiumTimebasedState.fromJsonMap(
-            json.decode(event) as Map<String, dynamic>,
-          );
-          return state;
-        });
-    return _onTimebasedPlayerStateChanged!;
-  }
-
-  @override
-  Stream<ReadiumReaderStatus> get onReaderStatusChanged {
-    _onReaderStatusChanged ??= readerStatusChannel.receiveBroadcastStream().map(
-      (dynamic event) {
-        final newStatus = ReadiumReaderStatus.values.firstWhere(
-          (e) => e.name == event as String,
-        );
-        return newStatus;
-      },
-    );
-    return _onReaderStatusChanged!;
-  }
-
-  @override
-  Stream<ReadiumError> get onErrorEvent {
-    _onErrorEvent ??= errorEventChannel.receiveBroadcastStream().map((
-      dynamic event,
-    ) {
-      final errorEvent = ReadiumError.fromJson(
-        (event as Map).cast<String, dynamic>(),
+  Stream<ReadiumTimebasedState> get onTimebasedPlayerStateChanged =>
+      timebasedStateChannel.receiveBroadcastStream().map(
+        (dynamic event) => ReadiumTimebasedState.fromJsonMap(
+          json.decode(event) as Map<String, dynamic>,
+        ),
       );
-      return errorEvent;
-    });
-    return _onErrorEvent!;
-  }
+
+  @override
+  Stream<ReadiumReaderStatus> get onReaderStatusChanged =>
+      readerStatusChannel.receiveBroadcastStream().map(
+        (dynamic event) => ReadiumReaderStatus.values.firstWhere(
+          (e) => e.name == event as String,
+        ),
+      );
+
+  @override
+  Stream<ReadiumError> get onErrorEvent =>
+      errorEventChannel.receiveBroadcastStream().map(
+        (dynamic event) =>
+            ReadiumError.fromJson((event as Map).cast<String, dynamic>()),
+      );
 
   @override
   Future<Publication> loadPublication(String pubUrl) async {

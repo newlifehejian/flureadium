@@ -13,4 +13,14 @@ internal class ReadiumReaderChannel(messenger: BinaryMessenger, name: String) :
 
     fun onExternalLinkActivated(url: AbsoluteUrl) =
         invokeMethod("onExternalLinkActivated", url.toString())
+
+    // Per-view delivery for selection/decoration. The global EventChannels share
+    // one channel name across all reader instances, so any instance's
+    // subscribe/cancel clobbers the others. This per-view MethodChannel is tied
+    // to a single reader, mirroring onPageChanged, and avoids that interference.
+    fun onSelectionChanged(locator: Locator?) =
+        invokeMethod("onSelectionChanged", locator?.toJSON().toString())
+
+    fun onDecorationActivated(eventJson: String?) =
+        invokeMethod("onDecorationActivated", eventJson)
 }

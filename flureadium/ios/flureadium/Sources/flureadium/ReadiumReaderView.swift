@@ -64,9 +64,16 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   var publicationIdentifier: String?
 
   /// The editing actions shown in the EPUB long-press selection menu.
-  /// Suppressing the menu entirely is done via the SelectableNavigatorDelegate
-  /// hook `shouldShowMenuForSelection`, not by emptying this list.
-  static let epubEditingActions: [EditingAction] = [.copy, .lookup, .translate]
+  ///
+  /// Matches Android's StudyActionModeCallback: only a single custom "Study"
+  /// item is shown; system actions (copy/lookup/translate/share) are dropped.
+  /// The selector is dispatched up the responder chain and handled by
+  /// EdgeTapInterceptView (see `studyAction(_:)`).
+  static let studyEditingAction = EditingAction(
+    title: "Study",
+    action: #selector(EdgeTapInterceptView.studyAction(_:))
+  )
+  static let epubEditingActions: [EditingAction] = [studyEditingAction]
 
   func view() -> UIView {
     print(TAG, "::getView")
@@ -154,6 +161,19 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     channel.setMethodCallHandler(onMethodCall)
     readiumViewController.delegate = self
 
+    // Wire the "Study" selection-menu item to emit the current selection.
+    // Matches Android: only fire the `selection` event when the user
+    // explicitly taps Study, not on every long-press.
+    if let edgeTapView = _view as? EdgeTapInterceptView {
+      edgeTapView.onStudyAction = { [weak self] in
+        guard let self = self,
+              let selection = self.readiumViewController.currentSelection else { return }
+        self.selectionStreamHandler?.sendEvent(selection.locator.jsonString)
+        self.channel.onSelectionChanged(locatorJson: selection.locator.jsonString)
+        self.readiumViewController.clearSelection()
+      }
+    }
+
     // Set initial scroll mode from preferences and configure edge tap handlers accordingly
     isVerticalScroll = defaultPreferences?.scroll ?? false
     configureEdgeTapHandlers(isScrollMode: isVerticalScroll)
@@ -219,13 +239,13 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
   }
 
   // override SelectableNavigatorDelegate::navigator(_:shouldShowMenuForSelection:)
-  // Returning false suppresses the native UIMenuController; Flutter is responsible
-  // for rendering any selection UI. We also push the selection out over the
-  // "selection" EventChannel so Dart subscribers see it the moment iOS would
-  // have shown the menu.
+  // Returning true lets Readium show the system selection menu populated from
+  // `epubEditingActions` — which we've reduced to a single "Study" item to
+  // match Android's StudyActionModeCallback. The `selection` EventChannel
+  // fires later, only when the user taps Study (see `onStudyAction` wiring
+  // in init).
   func navigator(_ navigator: SelectableNavigator, shouldShowMenuForSelection selection: Selection) -> Bool {
-    selectionStreamHandler?.sendEvent(selection.locator.jsonString)
-    return false
+    return true
   }
 
   func navigatorContentInset(_ navigator: VisualNavigator) -> UIEdgeInsets? {
@@ -327,6 +347,7 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
       let str = String(data: data, encoding: .utf8)
     else { return }
     decorationActivatedStreamHandler?.sendEvent(str)
+    channel.onDecorationActivated(eventJson: str)
   }
 
   func getFirstVisibleLocator() async -> Locator? {

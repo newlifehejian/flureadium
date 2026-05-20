@@ -464,10 +464,15 @@ object ReadiumReader : TimebasedNavigator.TimebasedListener, EpubNavigator.Visua
 
     fun sendSelectionEvent(locator: Locator) {
         selectionEventChannel?.sendEvent(locator)
+        // Also deliver over the per-view MethodChannel; the app consumes selection
+        // via the widget callback (the global EventChannel above is kept for
+        // backward compatibility and has no app listener).
+        currentReaderWidget?.emitSelectionChanged(locator)
     }
 
     fun sendDecorationActivatedEvent(jsonPayload: String) {
         decorationActivatedEventChannel?.sendEvent(jsonPayload)
+        currentReaderWidget?.emitDecorationActivated(jsonPayload)
     }
 
     // Safe getter — returns applicationContext or throws if not available.
