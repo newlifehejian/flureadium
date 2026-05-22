@@ -228,12 +228,47 @@ The iOS implementation:
 When a user long-presses text in an EPUB or PDF reader, iOS shows a native
 selection menu.
 
-**EPUB:** The menu shows Copy, Look Up, and Translate. This is configured via
-Readium's `EditingAction` support with
-`config.editingActions = [.copy, .lookup, .translate]` in
-`EPUBNavigatorViewController.Configuration`. The `.copy` action uses the native
-`copy:` responder selector and copies the current selection to
-`UIPasteboard.general`.
+**EPUB:** The menu shows three **custom** items — "Study", "Look Up", and
+"Translate" — configured via `config.editingActions =
+ReadiumReaderView.epubEditingActions`
+(`[studyEditingAction, lookupEditingAction, translateEditingAction]`) in
+`EPUBNavigatorViewController.Configuration`. Each item's selector is dispatched
+up the responder chain to `EdgeTapInterceptView` (`studyAction(_:)` /
+`lookupAction(_:)` / `translateAction(_:)`), and `SelectionMenuPresenter`
+presents the Look Up / Translate UI from the current selection's text.
+
+**Configuring which items appear:** pass `selectionMenuItems` to
+`ReadiumReaderWidget` (a list of `ReaderSelectionMenuItem`). It flows through
+`creationParams["selectionMenuItems"]` to
+`ReadiumReaderView.epubEditingActions(for:)`, which builds the menu in the
+requested order. `null` shows all items. Examples: `[.study]` for Study only,
+`[.study, .lookUp]` to drop Translate. (Android shows "Study" regardless; Look
+Up / Translate aren't implemented there.)
+
+**Localizing the titles:** pass `selectionMenuLabels` (a
+`Map<ReaderSelectionMenuItem, String>`) to override item text per language. It
+flows through `creationParams["selectionMenuLabels"]` into
+`epubEditingActions(for:labels:)`, which builds each `EditingAction` with the
+provided title (falling back to the English default for any item not in the
+map). Android's "Study" label is still hardcoded and not affected.
+
+> Why custom instead of native? iOS bundles Look Up / Search Web / Translate
+> into a single `.lookup` menu group that Readium can only enable or disable as
+> a unit — so the native path cannot show Look Up + Translate without the
+> unwanted "Search Web". The only API that can remove a single item,
+> `buildMenu(with:)`, is never invoked on flureadium's Flutter-embedded view
+> (confirmed: the override compiles into the binary but never logs). So we drop
+> the native group entirely and reimplement the two items:
+>
+> - **Look Up** → `UIReferenceLibraryViewController(term:)`, shown on all iOS
+>   versions.
+> - **Translate** → the public `Translation` framework
+>   (`translationPresentation(isPresented:text:)`), **iOS 17.4+ only**. Older
+>   iOS has no public translate API, and we don't ship the private `translate:`
+>   selector, so the Translate item is simply hidden there (see the version
+>   gate in `epubEditingActions`) rather than degraded to a network translator.
+>
+> Copy and Share are intentionally omitted.
 
 **PDF:** Copy is available through Readium's default editing actions
 (`EditingAction.defaultActions = [.copy, .share, .lookup, .translate]`). The

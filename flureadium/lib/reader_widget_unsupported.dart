@@ -36,6 +36,8 @@ class ReadiumReaderWidget extends StatelessWidget {
     this.onSelectionChanged,
     this.onDecorationActivated,
     this.onReady,
+    this.selectionMenuItems,
+    this.selectionMenuLabels,
     super.key,
   });
 
@@ -53,6 +55,11 @@ class ReadiumReaderWidget extends StatelessWidget {
 
   /// Not invoked on unsupported platforms.
   final VoidCallback? onReady;
+
+  /// Selection-menu configuration. Ignored on unsupported platforms; present
+  /// for API parity with the mobile widget.
+  final List<ReaderSelectionMenuItem>? selectionMenuItems;
+  final Map<ReaderSelectionMenuItem, String>? selectionMenuLabels;
 
   @override
   Widget build(final BuildContext context) =>

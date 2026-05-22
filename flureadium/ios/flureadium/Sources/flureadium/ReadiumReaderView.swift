@@ -63,17 +63,85 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
   var publicationIdentifier: String?
 
-  /// The editing actions shown in the EPUB long-press selection menu.
+  /// The editing actions shown in the EPUB long-press selection menu:
+  /// custom "Study", "Look Up", and "Translate" items.
   ///
-  /// Matches Android's StudyActionModeCallback: only a single custom "Study"
-  /// item is shown; system actions (copy/lookup/translate/share) are dropped.
-  /// The selector is dispatched up the responder chain and handled by
-  /// EdgeTapInterceptView (see `studyAction(_:)`).
+  /// All three are *custom* EditingActions, not iOS's native ones. We avoid the
+  /// native `.lookup` action on purpose: iOS bundles Look Up / Search Web /
+  /// Translate into a single `.lookup` menu group that Readium can only toggle
+  /// as a unit, so the native path can't show Look Up + Translate without also
+  /// showing the unwanted "Search Web". The one place that could remove a single
+  /// item — `buildMenu(with:)` — is never invoked on our Flutter-embedded view,
+  /// so we can't strip it that way either.
+  ///
+  /// Instead each item's selector is dispatched up the responder chain to
+  /// EdgeTapInterceptView (see `studyAction(_:)` / `lookupAction(_:)` /
+  /// `translateAction(_:)`), and flureadium presents the Look Up / Translate UI
+  /// itself via `SelectionMenuPresenter`.
   static let studyEditingAction = EditingAction(
     title: "Study",
     action: #selector(EdgeTapInterceptView.studyAction(_:))
   )
-  static let epubEditingActions: [EditingAction] = [studyEditingAction]
+  static let lookupEditingAction = EditingAction(
+    title: "Look Up",
+    action: #selector(EdgeTapInterceptView.lookupAction(_:))
+  )
+  static let translateEditingAction = EditingAction(
+    title: "Translate",
+    action: #selector(EdgeTapInterceptView.translateAction(_:))
+  )
+
+  /// Builds the selection-menu actions from the configuration passed by Flutter:
+  /// - `items` — `ReadiumReaderWidget.selectionMenuItems` (creationParams key
+  ///   `selectionMenuItems`): names `study` / `lookUp` / `translate` in display
+  ///   order. `nil` means "show all".
+  /// - `labels` — `ReadiumReaderWidget.selectionMenuLabels` (creationParams key
+  ///   `selectionMenuLabels`): per-item title overrides for localization, keyed
+  ///   by the same names. A missing entry falls back to the English default.
+  ///
+  /// Study and Look Up are available on all iOS versions. "Translate" requires
+  /// iOS 17.4+ (the public `Translation` framework); on older iOS there is no
+  /// public translate API and we won't ship the private `translate:` selector,
+  /// so Translate is dropped automatically even when requested.
+  static func epubEditingActions(
+    for items: [String]?,
+    labels: [String: String]? = nil
+  ) -> [EditingAction] {
+    let requested = items ?? ["study", "lookUp", "translate"]
+
+    // Keys arrive as enum names ("study"/"lookUp"/"translate"); match
+    // case-insensitively so default-casing and Dart-casing both work.
+    func label(_ key: String) -> String? {
+      labels?.first { $0.key.caseInsensitiveCompare(key) == .orderedSame }?.value
+    }
+
+    var actions: [EditingAction] = []
+    for item in requested {
+      switch item.lowercased() {
+      case "study":
+        actions.append(label("study").map {
+          EditingAction(title: $0, action: #selector(EdgeTapInterceptView.studyAction(_:)))
+        } ?? studyEditingAction)
+      case "lookup":
+        actions.append(label("lookUp").map {
+          EditingAction(title: $0, action: #selector(EdgeTapInterceptView.lookupAction(_:)))
+        } ?? lookupEditingAction)
+      case "translate":
+        if #available(iOS 17.4, *) {
+          actions.append(label("translate").map {
+            EditingAction(title: $0, action: #selector(EdgeTapInterceptView.translateAction(_:)))
+          } ?? translateEditingAction)
+        }
+      default:
+        break
+      }
+    }
+    return actions
+  }
+
+  /// Default selection menu (all items, default English labels). Used when no
+  /// configuration is passed and by tests.
+  static var epubEditingActions: [EditingAction] { epubEditingActions(for: nil) }
 
   func view() -> UIView {
     print(TAG, "::getView")
@@ -138,7 +206,10 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
     // the overlap region. alpha=1.0 made every highlight fully opaque, hiding
     // the stacking effect when multiple decorations cover the same range.
     config.decorationTemplates = HTMLDecorationTemplate.defaultTemplates(alpha: 0.3, experimentalPositioning: true)
-    config.editingActions = ReadiumReaderView.epubEditingActions
+    config.editingActions = ReadiumReaderView.epubEditingActions(
+      for: creationParams["selectionMenuItems"] as? [String],
+      labels: creationParams["selectionMenuLabels"] as? [String: String]
+    )
 
     if (defaultPreferences != nil) {
       config.preferences = defaultPreferences!
@@ -171,6 +242,23 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
         self.selectionStreamHandler?.sendEvent(selection.locator.jsonString)
         self.channel.onSelectionChanged(locatorJson: selection.locator.jsonString)
         self.readiumViewController.clearSelection()
+      }
+
+      // "Look Up" / "Translate" are custom menu items (see epubEditingActions);
+      // flureadium presents the system UI itself from the selected text.
+      edgeTapView.onLookupAction = { [weak self] in
+        guard let self = self,
+              let text = self.readiumViewController.currentSelection?.locator.text.highlight
+        else { return }
+        self.readiumViewController.clearSelection()
+        SelectionMenuPresenter.lookUp(text)
+      }
+      edgeTapView.onTranslateAction = { [weak self] in
+        guard let self = self,
+              let text = self.readiumViewController.currentSelection?.locator.text.highlight
+        else { return }
+        self.readiumViewController.clearSelection()
+        SelectionMenuPresenter.translate(text)
       }
     }
 
@@ -240,10 +328,9 @@ class ReadiumReaderView: NSObject, FlutterPlatformView, EPUBNavigatorDelegate, V
 
   // override SelectableNavigatorDelegate::navigator(_:shouldShowMenuForSelection:)
   // Returning true lets Readium show the system selection menu populated from
-  // `epubEditingActions` — which we've reduced to a single "Study" item to
-  // match Android's StudyActionModeCallback. The `selection` EventChannel
-  // fires later, only when the user taps Study (see `onStudyAction` wiring
-  // in init).
+  // `epubEditingActions` — the custom "Study", "Look Up", and "Translate"
+  // items. The `selection` EventChannel fires later, only when the user taps
+  // Study (see `onStudyAction` wiring in init).
   func navigator(_ navigator: SelectableNavigator, shouldShowMenuForSelection selection: Selection) -> Bool {
     return true
   }

@@ -28,6 +28,8 @@ const ReadiumReaderWidget({
   Function(String)? onExternalLinkActivated,
   void Function(Locator)? onLocatorChanged,
   VoidCallback? onReady,
+  List<ReaderSelectionMenuItem>? selectionMenuItems,
+  Map<ReaderSelectionMenuItem, String>? selectionMenuLabels,
   Key? key,
 })
 ```
@@ -227,6 +229,64 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 }
 ```
+
+### selectionMenuItems
+
+**Type:** `List<ReaderSelectionMenuItem>?`
+**Default:** `null` (all items)
+
+Controls which items appear in the iOS text-selection (long-press) menu, and in
+what order. `null` shows all of them.
+
+```dart
+// Study only — drop Look Up and Translate:
+ReadiumReaderWidget(publication: pub, selectionMenuItems: [ReaderSelectionMenuItem.study])
+
+// Study + Look Up, no Translate:
+ReadiumReaderWidget(
+  publication: pub,
+  selectionMenuItems: const [ReaderSelectionMenuItem.study, ReaderSelectionMenuItem.lookUp],
+)
+```
+
+Platform notes: applies on **iOS only** — Android's menu shows "Study"
+regardless (Look Up / Translate aren't implemented there). `translate`
+additionally requires iOS 17.4+ and is hidden automatically below that even if
+requested. For the full story — configuring items, localizing titles, and
+running your own logic (e.g. a paywall) when Look Up / Translate is tapped — see
+the [Selection Menu guide](../guides/selection-menu.md).
+
+### selectionMenuLabels
+
+**Type:** `Map<ReaderSelectionMenuItem, String>?`
+**Default:** `null` (English defaults: "Study" / "Look Up" / "Translate")
+
+Localized titles for the iOS selection-menu items. Provide your own text per
+item; any item omitted from the map keeps its English default.
+
+```dart
+ReadiumReaderWidget(
+  publication: pub,
+  selectionMenuLabels: const {
+    ReaderSelectionMenuItem.study: '学习',
+    ReaderSelectionMenuItem.lookUp: '查词',
+    ReaderSelectionMenuItem.translate: '翻译',
+  },
+)
+```
+
+Wire it to your app's localizations to switch with the device language, e.g.:
+
+```dart
+selectionMenuLabels: {
+  ReaderSelectionMenuItem.study: AppLocalizations.of(context)!.study,
+  ReaderSelectionMenuItem.lookUp: AppLocalizations.of(context)!.lookUp,
+  ReaderSelectionMenuItem.translate: AppLocalizations.of(context)!.translate,
+},
+```
+
+iOS only (like `selectionMenuItems`). Combine the two to control both which
+items appear and their titles.
 
 ## Interface Methods
 

@@ -28,12 +28,13 @@ class EdgeTapInterceptView: UIView {
     /// whether edge tap callbacks are configured.
     var interceptEdgeTaps: Bool = false
 
-    /// Callback invoked when the user taps the "Study" item in the text
-    /// selection menu. Lives here because EdgeTapInterceptView is the
-    /// topmost UIView in the platform-view hierarchy, so it sits on the
-    /// responder chain above the WKWebView and iOS will find
-    /// `studyAction(_:)` here when dispatching the menu selector.
+    /// Callbacks for the custom text-selection menu items. They live here
+    /// because EdgeTapInterceptView is the topmost UIView in the platform-view
+    /// hierarchy, so it sits on the responder chain above the WKWebView and iOS
+    /// finds these selectors here when dispatching a custom menu action.
     var onStudyAction: (() -> Void)?
+    var onLookupAction: (() -> Void)?
+    var onTranslateAction: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -93,11 +94,25 @@ class EdgeTapInterceptView: UIView {
         onStudyAction?()
     }
 
+    @objc func lookupAction(_ sender: Any?) {
+        onLookupAction?()
+    }
+
+    @objc func translateAction(_ sender: Any?) {
+        onTranslateAction?()
+    }
+
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(studyAction(_:)) {
+        switch action {
+        case #selector(studyAction(_:)):
             return onStudyAction != nil
+        case #selector(lookupAction(_:)):
+            return onLookupAction != nil
+        case #selector(translateAction(_:)):
+            return onTranslateAction != nil
+        default:
+            return super.canPerformAction(action, withSender: sender)
         }
-        return super.canPerformAction(action, withSender: sender)
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {

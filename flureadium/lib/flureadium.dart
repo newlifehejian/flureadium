@@ -6,6 +6,7 @@ import 'package:flureadium_platform_interface/flureadium_platform_interface.dart
 
 export 'package:flureadium_platform_interface/flureadium_platform_interface.dart';
 export 'reader_widget_switch.dart';
+export 'src/selection_menu_item.dart';
 export 'src/utils/navigation_helper.dart';
 export 'src/utils/toc_matcher.dart';
 

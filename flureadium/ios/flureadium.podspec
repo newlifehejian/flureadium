@@ -26,6 +26,12 @@ A new Flutter plugin project.
 
   s.platform = :ios, '13.4'
 
+  # Translation.framework is iOS 17.4+. The deployment target is 13.4, so it
+  # must be weak-linked or the app could fail to launch on older iOS even though
+  # all uses are gated by `if #available(iOS 17.4, *)`
+  # (see SelectionMenuPresenter.swift).
+  s.weak_frameworks = 'Translation'
+
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
   s.swift_version = '5.0'

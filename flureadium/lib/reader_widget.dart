@@ -10,6 +10,7 @@ import 'package:flureadium_platform_interface/flureadium_platform_interface.dart
 import 'package:rxdart/rxdart.dart';
 
 import 'reader_channel.dart';
+import 'src/selection_menu_item.dart';
 import 'src/reader/orientation_handler_mixin.dart';
 import 'src/reader/reader_lifecycle_mixin.dart';
 import 'src/reader/wakelock_manager_mixin.dart';
@@ -50,6 +51,8 @@ class ReadiumReaderWidget extends StatefulWidget {
     this.onSelectionChanged,
     this.onDecorationActivated,
     this.onReady,
+    this.selectionMenuItems,
+    this.selectionMenuLabels,
     super.key,
   });
 
@@ -76,6 +79,16 @@ class ReadiumReaderWidget extends StatefulWidget {
   /// [Flureadium.onReaderStatusChanged], [Flureadium.onTextLocatorChanged],
   /// and [Flureadium.onErrorEvent] from within this callback on all platforms.
   final VoidCallback? onReady;
+
+  /// Which items appear in the iOS text-selection menu, and in what order.
+  /// `null` (default) shows all of them. See [ReaderSelectionMenuItem] for
+  /// platform notes (iOS only; Translate needs iOS 17.4+).
+  final List<ReaderSelectionMenuItem>? selectionMenuItems;
+
+  /// Localized titles for the iOS selection-menu items. Provide your own text
+  /// per item (e.g. for localization); any item not in the map keeps its
+  /// English default ("Study" / "Look Up" / "Translate"). iOS only.
+  final Map<ReaderSelectionMenuItem, String>? selectionMenuLabels;
 
   @override
   State<StatefulWidget> createState() => _ReadiumReaderWidgetState();
@@ -390,6 +403,14 @@ class _ReadiumReaderWidgetState extends State<ReadiumReaderWidget>
       'initialLocator': widget.initialLocator == null
           ? null
           : json.encode(widget.initialLocator),
+      // iOS reads this to build the selection menu. null => show all items.
+      'selectionMenuItems': widget.selectionMenuItems
+          ?.map((final item) => item.name)
+          .toList(),
+      // Per-item title overrides (localization), keyed by item name. iOS only.
+      'selectionMenuLabels': widget.selectionMenuLabels?.map(
+        (final item, final label) => MapEntry(item.name, label),
+      ),
     };
 
     R2Log.d('creationParams=$creationParams');

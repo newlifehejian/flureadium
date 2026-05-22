@@ -38,6 +38,8 @@ class ReadiumReaderWidget extends StatefulWidget {
     this.onSelectionChanged,
     this.onDecorationActivated,
     this.onReady,
+    this.selectionMenuItems,
+    this.selectionMenuLabels,
     super.key,
   });
 
@@ -56,6 +58,11 @@ class ReadiumReaderWidget extends StatefulWidget {
   /// Called once when the widget is ready to accept stream subscriptions.
   /// On web, event channels are registered eagerly, so this fires from initState.
   final VoidCallback? onReady;
+
+  /// Selection-menu configuration. Ignored on web (no native selection menu);
+  /// present for API parity with the mobile widget.
+  final List<ReaderSelectionMenuItem>? selectionMenuItems;
+  final Map<ReaderSelectionMenuItem, String>? selectionMenuLabels;
 
   @override
   State<ReadiumReaderWidget> createState() => _ReadiumReaderWidgetState();

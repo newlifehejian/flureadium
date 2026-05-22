@@ -25,6 +25,7 @@ Flureadium is a Flutter plugin that wraps the Readium toolkits for reading EPUB 
 - **[Text-to-Speech](guides/text-to-speech.md)** - TTS integration and voice selection
 - **[Audiobook Playback](guides/audiobook-playback.md)** - Playing pre-recorded audio
 - **[Highlights & Annotations](guides/highlights-annotations.md)** - Adding visual decorations
+- **[Selection Menu](guides/selection-menu.md)** - Configure which items show, localize titles, and route Look Up / Translate to Flutter
 - **[Saving Progress](guides/saving-progress.md)** - Persisting reading position
 - **[Reader Preferences](guides/preferences.md)** - Customizing appearance
 - **[Error Handling](guides/error-handling.md)** - Exception types and best practices
